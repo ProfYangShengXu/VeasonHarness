@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veason-harness"
+version = "0.1.0"
+description = "Give an LLM agent eyes: index a video once, then answer "which frame, and where in it" with a region id instead of a coordinate."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["video", "referring-segmentation", "agent", "cli", "vision", "revos"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+
+# 核心依赖只列「跑路径必需」的；模型侧依赖由 tools/setup_*.sh 装（含 CUDA 选型）
+dependencies = [
+    "numpy",
+    "opencv-python",
+]
+
+[project.optional-dependencies]
+# 跑 ② locate / ③ evidence 需要的重件（按 CUDA 版本自行选 wheel）
+models = [
+    "torch",
+    "transformers",
+    "peft",
+    "pillow",
+    "ultralytics",
+]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+veason = "veason_harness.cli:main"
+
+[tool.setuptools]
+packages = ["veason_harness"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

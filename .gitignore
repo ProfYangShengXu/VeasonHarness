@@ -1,0 +1,36 @@
+# 权重与数据 —— 一律不进仓库（见 README「数据与许可」）
+models/
+*.pt
+*.ts
+*.safetensors
+index/
+index-*/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# 测试与缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 编辑器和系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 凭据（永远不进仓库）
+.env
+*.env
+!*.env.example
+secrets/
+
+# 内部草稿（内容已并入 README，不进仓库）
+docs_internal/
