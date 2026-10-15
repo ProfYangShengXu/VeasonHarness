@@ -266,6 +266,19 @@ pip install -e .
 vrs index your_video.mp4 --frames 16
 ```
 
+### Docker（推荐用来复现）
+
+镜像只装**环境**，权重不打包（20GB+，运行时挂载 `/models`）。
+
+```bash
+docker build -f docker/Dockerfile -t veason-harness .
+docker run --rm -v /path/to/models:/models veason-harness --help
+```
+
+完整说明（能跑什么 / 权重怎么摆 / 踩过的坑）见 **[docker/README.md](docker/README.md)**。
+用 compose 的话 `cp docker/.env.example .env` 再 `docker compose -f docker/docker-compose.yml run --rm test`。
+
+
 ### 要跑精细定位（② locate）才需要的东西
 
 ```bash

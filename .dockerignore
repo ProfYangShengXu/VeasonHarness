@@ -1,0 +1,42 @@
+# 权重与索引 —— 一律不进构建上下文（20GB+，且要挂载而不是打包）
+models/
+index/
+index-*/
+*.pt
+*.pth
+*.ts
+*.safetensors
+*.onnx
+
+# 数据与产物
+data/
+out/
+outputs/
+build_tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 版本控制与编辑器
+.git/
+.github/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 内部草稿
+docs_internal/
+
+# 凭据
+.env
+*.env
+!*.env.example
+secrets/

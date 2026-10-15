@@ -1,0 +1,12 @@
+# 强制 LF —— Dockerfile 里的续行符 `\` 后面若带 \r，Linux 上 RUN 会断
+*.sh          text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+Dockerfile    text eol=lf
+*.dockerfile  text eol=lf
+.dockerignore text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+.env.example  text eol=lf
+*.py          text eol=lf
+*.md          text eol=lf

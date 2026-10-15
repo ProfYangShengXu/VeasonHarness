@@ -1,0 +1,9 @@
+把预下的 torch / torchvision wheel 放进这个目录，build 时会自动优先使用。
+
+  cd docker/wheels
+  B=https://download.pytorch.org/whl/cu126
+  curl -C - -O $B/torch-2.14.0%2Bcu126-cp310-cp310-manylinux_2_28_x86_64.whl
+  curl -C - -O $B/torchvision-0.29.0%2Bcu126-cp310-cp310-manylinux_2_28_x86_64.whl
+
+中断了就重跑同一条命令（-C - 续传）。
+本目录下的 *.whl 不会进 git，只用于本地 build。

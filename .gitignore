@@ -40,3 +40,7 @@ docs/*
 !docs/architecture.png
 !docs/score_summary.png
 !docs/case_*.png
+
+# docker 构建用的预下 wheel（体积大，不进仓库）
+docker/wheels/*.whl
+!docker/wheels/.gitkeep

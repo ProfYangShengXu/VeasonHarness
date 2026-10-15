@@ -1,0 +1,62 @@
+# docker-compose for VeasonHarness
+#
+#   cp docker/.env.example .env      # 填 MODELS_DIR / DATA_DIR / 模型 key
+#   docker compose -f docker/docker-compose.yml run --rm vrs --help
+#   docker compose -f docker/docker-compose.yml run --rm test
+#
+# GPU：需要宿主机装 nvidia-container-toolkit；只跑 CPU 路径（建索引）时
+#      可以把 deploy.resources 那段删掉。
+
+services:
+  vrs:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: veason-harness:latest
+    env_file:
+      - ./.env
+    volumes:
+      - ${MODELS_DIR:?set MODELS_DIR in .env}:/models:ro
+      - ${DATA_DIR:?set DATA_DIR in .env}:/data
+      - ./out:/out
+    working_dir: /app
+    # 默认进 CLI；要别的命令用 --entrypoint 覆盖
+    entrypoint: ["python", "vrs.py"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # 单元测试：不需要权重
+  test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: veason-harness:latest
+    entrypoint: ["python", "-m", "pytest"]
+    command: ["-q", "tests/"]
+
+  # 完整五环（按需改 --query / --video）
+  pipeline:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: veason-harness:latest
+    env_file:
+      - ./.env
+    volumes:
+      - ${MODELS_DIR:?set MODELS_DIR in .env}:/models:ro
+      - ${DATA_DIR:?set DATA_DIR in .env}:/data
+      - ./out:/out
+    entrypoint: ["python", "vrs_pipeline.py"]
+    command: ["--video", "/data/sample.mp4", "--query", "the primate."]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
