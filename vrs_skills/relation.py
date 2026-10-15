@@ -3,7 +3,7 @@
 The relation vocabulary is supplied *at inference time* -- that is the native
 usage of the model, not a convenience wrapper.  ``set_vocabulary`` re-encodes
 the phrases with the shipped text student and re-parameterises the head, so
-``veason relate <dir> <fid> "riding" "carrying"`` really does ask a different
+``vrs relate <dir> <fid> "riding" "carrying"`` really does ask a different
 question rather than filtering a fixed table.
 """
 from __future__ import annotations
@@ -71,7 +71,7 @@ class Relater:
         if not phrases:
             raise VrsError(
                 "no relation phrases given",
-                hint='usage: veason relate <index_dir> <frame_id> "riding" "holding"; '
+                hint='usage: vrs relate <index_dir> <frame_id> "riding" "holding"; '
                 "any free-text relation works, they are encoded at inference time.",
                 code=2,
             )

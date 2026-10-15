@@ -128,15 +128,15 @@ class IndexStore:
     def require(self) -> dict:
         if not self.exists():
             raise VrsError(
-                f"not a veason index directory: {self.root}",
-                hint="run `veason index <video>` first; it prints the resolved index_dir to use.",
+                f"not a vrs index directory: {self.root}",
+                hint="run `vrs index <video>` first; it prints the resolved index_dir to use.",
             )
         try:
             return json.loads(self.meta_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise VrsError(
                 f"index.json is not valid JSON ({exc})",
-                hint="re-run `veason index <video>` against a fresh --out to rebuild.",
+                hint="re-run `vrs index <video>` against a fresh --out to rebuild.",
             ) from exc
 
     def save_meta(self, meta: dict) -> None:
@@ -154,8 +154,8 @@ class IndexStore:
         preview = known[:12] + (["..."] if len(known) > 12 else [])
         raise VrsError(
             f"frame_id {frame_id} is not in this index",
-            hint=f"known frame_ids: {preview} (see `veason frames <index_dir>`); "
-            "pass one of those, or re-run `veason index` with a larger --frames.",
+            hint=f"known frame_ids: {preview} (see `vrs frames <index_dir>`); "
+            "pass one of those, or re-run `vrs index` with a larger --frames.",
         )
 
     # -- regions -------------------------------------------------------------
@@ -172,7 +172,7 @@ class IndexStore:
             self.require_frame(frame_id)
             raise VrsError(
                 f"no region table stored for frame {frame_id}",
-                hint="re-run `veason index` (the frame is listed but its regions are missing).",
+                hint="re-run `vrs index` (the frame is listed but its regions are missing).",
             )
         return rec
 
@@ -186,7 +186,7 @@ class IndexStore:
             raise VrsError(
                 f"region_idx {idx} does not exist on frame {frame_id} "
                 f"(valid: 0..{len(regions) - 1})",
-                hint=f"run `veason regions <index_dir> {frame_id}` to list the candidates.",
+                hint=f"run `vrs regions <index_dir> {frame_id}` to list the candidates.",
             )
         return regions[idx]
 
@@ -380,7 +380,7 @@ class IndexStore:
         if not p.is_file():
             raise VrsError(
                 f"frame image missing on disk: {for_agent(p)}",
-                hint="re-run `veason index <video>`; the index directory looks damaged.",
+                hint="re-run `vrs index <video>`; the index directory looks damaged.",
             )
         return p
 

@@ -1,4 +1,4 @@
-"""``veason`` entry point: one subcommand per perception skill.
+"""``vrs`` entry point: one subcommand per perception skill.
 
 Every command is non-interactive, prints one JSON document to stdout, and
 writes its failures as a single JSON object to stderr with a non-zero exit
@@ -27,7 +27,7 @@ from .answers import EXIT_VERIFY_FAILED, answer, verify  # noqa: E402
 from .errors import VrsError, emit_error  # noqa: E402
 from .store import IndexStore, sha256_json  # noqa: E402
 
-PROG = "veason"
+PROG = "vrs"
 
 
 def _print(payload) -> None:
@@ -36,22 +36,22 @@ def _print(payload) -> None:
     sys.stdout.flush()
 
 
-def _emit_events(info) -> None:
-    """降级/成本台账走 stderr，一行一个 JSON。
-
-    ★ 四环一律沿用 `cmd_recall` 立下的模式：**stdout 是契约，stderr 是事实**
-      （哪条路降级了、Jev 被调了几次）。把降级塞进 stdout 会污染契约，
-      把降级丢掉则会让「读数为 0」的原因永远查不出来。
-    """
-    for event in (info or {}).get("events", []):
-        sys.stderr.write(json.dumps(event, ensure_ascii=False) + "\n")
-    sys.stderr.flush()
-
-
 def _store(index_dir: str) -> IndexStore:
     store = IndexStore(paths.resolve(index_dir))
     store.require()
     return store
+
+
+def _emit_events(info) -> None:
+    """降级/成本台账走 stderr，一行一个 JSON。
+
+    ★ 四环沿用 ``cmd_recall`` 立下的模式：**stdout 是契约，stderr 是事实**
+      （哪条路降级了、Jev 被调了几次）。把降级塞进 stdout 会污染契约，把降级
+      丢掉则会让「读数为 0」的原因永远查不出来。
+    """
+    for event in (info or {}).get("events", []):
+        sys.stderr.write(json.dumps(event, ensure_ascii=False) + "\n")
+    sys.stderr.flush()
 
 
 def senses_axes() -> tuple:
@@ -107,7 +107,7 @@ def cmd_detect(args) -> int:
     if frame is None:
         raise VrsError(
             f"frame image unreadable: {store.frame_image(args.frame_id)}",
-            hint="re-run `veason index`; the stored PNG is corrupt.",
+            hint="re-run `vrs index`; the stored PNG is corrupt.",
         )
     cands, masks = PromptedDetector(conf=args.conf).detect(frame, args.phrase)
     # each candidate gets a provisional idx; merge_regions overwrites it with the
@@ -146,7 +146,7 @@ def cmd_relate(args) -> int:
     if frame is None:
         raise VrsError(
             f"frame image unreadable: {store.frame_image(args.frame_id)}",
-            hint="re-run `veason index`; the stored PNG is corrupt.",
+            hint="re-run `vrs index`; the stored PNG is corrupt.",
         )
     relater = Relater(predicates=args.relation)
     edges, info = relater.relate(frame, rec["regions"], store.load_masks(args.frame_id),
@@ -258,7 +258,7 @@ def cmd_recall(args) -> int:
         sys.stderr.write(json.dumps({
             "event": "recall_senses_unavailable",
             "senses": info.get("senses"),
-            "hint": "run `veason senses <index_dir>` once to compute the sense axes "
+            "hint": "run `vrs senses <index_dir>` once to compute the sense axes "
                     "(face/action/depth/text/pose); recall reads them from disk and loads no model.",
         }, ensure_ascii=False) + "\n")
     if info.get("empty"):
@@ -280,15 +280,13 @@ def cmd_senses(args) -> int:
     return 0
 
 
-# ---- 五环链的四条新命令（①②③⑤；④ 由 agent 自己做，见 veason_pipeline.py）----
+# ---- 五环链的四条新命令（①②③⑤；④ 由 agent 自己做，见 vrs_pipeline.py）----
 
 def cmd_screen(args) -> int:
     from .screen import parse_synonyms, run_screen
 
     payload, info = run_screen(
-        _store(args.index_dir), args.query, args.top_n, args.oov_rule,
-        oov_threshold=args.oov_threshold,
-        jev_backend=args.jev_backend,
+        _store(args.index_dir), args.query, args.top_n,
         synonyms=parse_synonyms(args.synonym),
         frames=args.frames,
     )
@@ -302,7 +300,7 @@ def cmd_locate(args) -> int:
 
     payload, info = run_locate(
         _store(args.index_dir), args.frames, args.query,
-        pad_to=args.pad_to, veason_backend=args.veason_backend,
+        batch_size=args.batch_size,
     )
     _emit_events(info)
     _print(payload)
@@ -312,10 +310,7 @@ def cmd_locate(args) -> int:
 def cmd_evidence(args) -> int:
     from .evidence import run_evidence
 
-    payload, info = run_evidence(
-        _store(args.index_dir), args.frames, args.query, args.axes,
-        axis_backend=args.axis_backend,
-    )
+    payload, info = run_evidence(_store(args.index_dir), args.frames, args.query, args.axes)
     _emit_events(info)
     _print(payload)
     return 0
@@ -326,9 +321,7 @@ def cmd_reflect(args) -> int:
 
     payload, info = run_reflect(
         _store(args.index_dir), args.round, parse_state(args.state),
-        fuse_rounds=args.fuse_rounds, reflect_first=args.reflect_first,
-        crop_source=args.crop_source, min_area=args.min_area,
-        jev_backend=args.jev_backend, axis_backend=args.axis_backend,
+        reflect_first=args.reflect_first, min_area=args.min_area,
     )
     _emit_events(info)
     _print(payload)
@@ -445,7 +438,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="max frames to backfill relations for per call (default 16)")
     sp.add_argument("--sem-max-crops", type=int, default=96,
                     help="max region crops to embed with CLIP per call (default 96; largest regions first)")
-    # ---- round-3 sense routes (read from `veason senses` output, no model load) ----
+    # ---- round-3 sense routes (read from `vrs senses` output, no model load) ----
     sp.add_argument("--no-face", action="store_true",
                     help="switch the whole face axis off (landmarker blendshapes and the "
                          "zero-shot expression head)")
@@ -489,66 +482,45 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_senses)
 
     # ---- 五环链 ①②③⑤（④ 是 agent 自己的活，没有对应命令）----
-    sp = add("screen", "① 初筛：YOLO 主力，OOV 才上 Jev（高召回，输出带 route 与成本）")
+    sp = add("screen", "① 初筛：query 词零命中的帧才上 Jev（高召回，输出带 route 与成本）")
     sp.add_argument("index_dir")
-    sp.add_argument("--query", required=True, help="指代表达式（自然语言，中英文都行）")
+    sp.add_argument("--query", required=True, help="指代表达式（agent 改写后的实义词）")
     sp.add_argument("--top-n", type=int, default=6,
                     help="返回几个候选（默认 6；★ 实测 >3 个进打分器就崩，>6 更要小心）")
-    sp.add_argument("--oov-rule", default="query_miss", choices=("query_miss", "score_threshold"),
-                    help="OOV 判据：query_miss = query 词零命中（可解释，默认）；"
-                         "score_threshold = YOLO 最高分低于 --oov-threshold（更连续）")
-    sp.add_argument("--oov-threshold", type=float, default=0.30,
-                    help="score_threshold 规则的门限（默认 0.30；★ 推断值，未标定）")
     sp.add_argument("--frames", default="",
                     help="只筛这些帧（逗号分隔）；不给 = 索引里的全部帧")
     sp.add_argument("--synonym", action="extend", nargs="+", default=[], metavar="KEY=WORD[,WORD]",
                     help="中文 query ↔ 英文 label 的显式映射，可重复。"
                          '例：--synonym "奶龙=parachute,stuffed toy"')
-    sp.add_argument("--jev-backend", default=None,
-                    help="jev 后端：auto(默认→local，同进程真件) | local | fake | unavailable（env VEASON_JEV_BACKEND）")
     sp.set_defaults(func=cmd_screen)
 
-    sp = add("locate", "② 切分：Veason-R1 定位（只定位，不选帧；一次 8 帧）")
+    sp = add("locate", "② 切分：Veason-R1 定位（只定位，不选帧；分批 ≤8，不补齐）")
     sp.add_argument("index_dir")
     sp.add_argument("--frames", required=True, help="要定位的帧号，逗号分隔，例：850,384")
     sp.add_argument("--query", required=True, help="指代表达式")
-    sp.add_argument("--pad-to", type=int, default=8,
-                    help="一次前向的帧数（Veason-R1 官方口径 = 8）；不足时用【没看过的】帧补齐")
-    sp.add_argument("--veason-backend", default=None,
-                    help="veason 后端：auto(默认→local，同进程真件) | local | fake | unavailable（env VEASON_VEASON_BACKEND）")
+    sp.add_argument("--batch-size", type=int, default=8,
+                    help="一次前向的帧数（Veason-R1 官方口径 = 8）；最后一批短就是短，不补齐")
     sp.set_defaults(func=cmd_locate)
 
-    sp = add("evidence", "③ 打标签 + 按轴路由小模型（面积/数量纯计算，零模型）")
+    sp = add("evidence", "③ 打标签 + 按轴路由（面积/数量纯计算，零模型）")
     sp.add_argument("index_dir")
     sp.add_argument("--frames", required=True, help="要取证据的帧号，逗号分隔")
     sp.add_argument("--query", required=True, help="指代表达式")
     sp.add_argument("--axes", default="area,action,occlusion", metavar="AXIS[,AXIS...]",
                     help="要哪些轴：area,count,attribute,relation,action,occlusion,text"
                          "（默认 area,action,occlusion）")
-    sp.add_argument("--axis-backend", default=None,
-                    help="轴后端：auto(默认→senses-cache) | fake | senses-cache | local | unavailable")
     sp.set_defaults(func=cmd_evidence)
 
-    sp = add("reflect", "④ 分路反思：换帧/放大/换轴，每轮必须带【新测量】；"
-                        "★ 不设次数上限，唯一正常终止是 no_new_information（没有新测量可拿）")
+    sp = add("reflect", "④ 分路反思：换帧/放大/换轴，每轮必须带【新测量】，无轮次上限")
     sp.add_argument("index_dir")
-    sp.add_argument("--round", type=int, required=True, help="这是第几轮（从 1 开始）")
+    sp.add_argument("--round", type=int, required=True, help="这是第几轮（从 1 开始，只记账，无上限）")
     sp.add_argument("--state", required=True,
                     help="上一轮的状态：内联 JSON，或一个 .json 文件路径（两种都吃）")
-    sp.add_argument("--fuse-rounds", "--max-rounds", dest="fuse_rounds", type=int, default=1000,
-                    help="★ 保险丝，不是轮次上限（默认 1000；0 = 完全不设）。正常终止只有一个："
-                         "reflect 报 no_new_information（没有新测量可拿）")
     sp.add_argument("--reflect-first", default="low_visibility",
                     choices=("low_visibility", "by_measurement"),
                     help="第一轮先跑哪条：low_visibility = 确定性、零成本（默认）| by_measurement")
-    sp.add_argument("--crop-source", default="yolo", choices=("yolo", "veason"),
-                    help="「放大」剪哪个框：yolo = ① 的 region 框（默认，现成）| "
-                         "veason = ② 的框（更准，但要等 ② 跑完）")
     sp.add_argument("--min-area", type=float, default=0.02,
-                    help="「低可见」判据的面积门限（默认 0.02；★ 推断值，未标定 —— "
-                         "规格只写「< 阈值」，切点要按素材标）")
-    sp.add_argument("--jev-backend", default=None, help="放大后重问用的后端（auto→local | local | fake | unavailable）")
-    sp.add_argument("--axis-backend", default=None, help="换轴用的后端")
+                    help="「低可见」判据的面积门限（默认 0.02；★ 推断值，未标定）")
     sp.set_defaults(func=cmd_reflect)
 
     return p
@@ -574,7 +546,7 @@ def main(argv: list[str] | None = None) -> int:
             cmd,
             f"{type(exc).__name__}: {exc}",
             "unexpected failure. Re-run the same command with `--debug` (before the subcommand) "
-            "to see the traceback, and report the command line + `veason --help` output.",
+            "to see the traceback, and report the command line + `vrs --help` output.",
         )
     return 1
 

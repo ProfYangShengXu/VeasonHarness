@@ -1,4 +1,4 @@
-"""``veason senses``: the round-3 sense axes, computed once and stored per frame.
+"""``vrs senses``: the round-3 sense axes, computed once and stored per frame.
 
 Round 1 gave the CLI a detector (what *objects* are in a frame).  Round 2 gave it
 retrieval over those objects (``recall``).  Both answer questions on the
@@ -24,9 +24,9 @@ axis             field (per region)                                        model
 
 Design rules, inherited from the rest of the project:
 
-* **Layering.**  ``veason index`` does *not* run any of this.  Like relation
-  graphs, senses are an opt-in pass (``veason senses``) and the index keeps only
-  what a build can know for free.  ``veason recall`` reads the stored files and
+* **Layering.**  ``vrs index`` does *not* run any of this.  Like relation
+  graphs, senses are an opt-in pass (``vrs senses``) and the index keeps only
+  what a build can know for free.  ``vrs recall`` reads the stored files and
   loads no model of its own.
 * **A stale field is worse than a missing one.**  Each frame's file records the
   ``regions_sha256`` it was computed against; a ``detect`` that changes the
@@ -48,7 +48,7 @@ from .paths import (DEPTH_ONNX, DEPTH_PREPROCESSOR, FACE_LANDMARKER_TASK,
                     POSE_WEIGHTS, VIDEOMAE_DIR)
 from .store import IndexStore, sha256_json
 
-SCHEMA = 2   # v2: face slot 的 src 改指真正产出该值的件（规格 §4.3 纪律③）；见下面复用判据
+SCHEMA = 2   # v2: face slot 的 src 改指真正产出该值的件；见下面复用判据
 
 #: ``pose`` covers both the tracker and the keypoints: they come from one pass.
 DEFAULT_AXES = ("face", "action", "depth", "text", "pose")
@@ -339,11 +339,26 @@ class ActionSensor:
         from PIL import Image
 
         n = len(self.frame_ids)
-        start = max(0, min(n - 16, i - 8))
+        # n < 16 时 (n - 16) 为负，min() 会选中它 => start 为负 => 负索引切片取错帧，
+        # 喂给 VideoMAE 的帧数就不是 16（实测崩在 784 vs 1568）。先夹上界到 >=0。
+        start = max(0, min(max(0, n - 16), i - 8))
+        ids = list(self.frame_ids[start:start + 16]) or list(self.frame_ids)
         frames = []
-        for fid in self.frame_ids[start:start + 16]:
-            img = cv2.imread(str(self.store.frame_image(fid)))
-            frames.append(Image.fromarray(np.ascontiguousarray(img[:, :, ::-1])))
+        # VideoMAE 的输入必须是【恰好 16 帧】（位置编码按 16 帧建的；实测喂 9 帧
+        # 崩在 784 vs 1568）。索引帧不足 16 时按顺序循环补齐 —— 重复真实帧比填零
+        # 诚实：零帧会被模型读成「黑屏动作」。
+        while len(frames) < 16:
+            added = False
+            for fid in ids:
+                if len(frames) >= 16:
+                    break
+                img = cv2.imread(str(self.store.frame_image(fid)))
+                if img is None:
+                    continue
+                frames.append(Image.fromarray(img[:, :, ::-1]))
+                added = True
+            if not added:
+                break
         return frames
 
     def predict(self, i: int, topk: int = 3) -> list[dict]:
@@ -593,9 +608,9 @@ def run_senses(store: IndexStore, *, axes: Optional[Sequence[str]] = None,
         prev = store.load_senses(fid)
         if prev and prev.get("regions_sha256") != sha:
             prev = None
-        # ★ schema 也是缓存键：v2 修了 face slot 的 src 标错（expression 产的数
-        #   被写成 mediapipe）。只看 regions_sha256 的话，旧的错值会一直被复用，
-        #   而 region 表一个字节都没变 —— 这正是「静默复用错值」的经典形态。
+        # ★ schema 也是缓存键：v2 修了 face slot 的 src 标错（expression 产的数被写成
+        #   mediapipe）。只看 regions_sha256 的话，旧的错值会一直被复用，而 region 表
+        #   一个字节都没变 —— 这正是「静默复用错值」的经典形态。
         if prev is not None and prev.get("schema") != SCHEMA:
             prev = None
         if not force and prev is not None and set(axes) <= set(prev.get("axes") or []):
@@ -609,7 +624,7 @@ def run_senses(store: IndexStore, *, axes: Optional[Sequence[str]] = None,
         region_axes, frame_axes = _sense_frame(
             fid, img, regions, masks, axes, face, depth, text, pose, action, i, t_of[fid])
         timings["_frame_s"] = timings.get("_frame_s", 0.0) + (time.time() - t0)
-        # An axis is expensive; a second `veason senses --axes depth` must not throw
+        # An axis is expensive; a second `vrs senses --axes depth` must not throw
         # away the face/action work already on disk.
         kept_axes, region_axes, frame_axes = _merge_axes(prev, region_axes, frame_axes, axes)
         store.save_senses(fid, {
@@ -676,18 +691,17 @@ def _sense_frame(fid, img, regions, masks, axes, face, depth, text, pose, action
                 continue
             from PIL import Image
 
-            crops.append(Image.fromarray(np.ascontiguousarray(patch[:, :, ::-1])))
+            crops.append(Image.fromarray(patch[:, :, ::-1]))
             keys.append(int(r["idx"]))
         for key, row in zip(keys, face.expression(crops)):
             slot = region_axes[str(key)].setdefault("face", {"n_faces": 0})
             slot.update(row)
             slot["expression_src"] = "clip-vitb32-expression-zeroshot"
             if "src" not in slot:
-                # ★ 这个 slot 是【表情头】建出来的（MediaPipe 没在这块找到脸），
-                #   所以产出这些数的是 CLIP，不是 MediaPipe。写 mediapipe 会让
-                #   「多 provider 并存时标错出处」—— 规格 §4.3 纪律③ 明确禁止。
-                #   两个件都答过的 slot 保留 blendshape 的 src，CLIP 那部分由
-                #   expression_src 指认（evidence.py 按「读哪个字段」定 src，不靠这个键）。
+                # ★ 这个 slot 是【表情头】建出来的（MediaPipe 没在这块找到脸），所以
+                #   产出这些数的是 CLIP，不是 MediaPipe。写 mediapipe 会让「多 provider
+                #   并存时标错出处」。两个件都答过的 slot 保留 blendshape 的 src，CLIP
+                #   那部分由 expression_src 指认（evidence.py 按「读哪个字段」定 src）。
                 slot["src"] = "clip-vitb32-expression-zeroshot"
 
     if action is not None:
@@ -766,7 +780,7 @@ def read_senses(store: IndexStore, frame_id: int) -> dict:
 
         raise VrsError(
             f"no senses stored for frame {frame_id}",
-            hint="run `veason senses <index_dir>` first (it computes every axis once and caches it).",
+            hint="run `vrs senses <index_dir>` first (it computes every axis once and caches it).",
             code=3,
         )
     return data

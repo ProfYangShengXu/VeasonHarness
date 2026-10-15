@@ -3,7 +3,7 @@
 The index must not know what is being searched for (that would be fitting the
 vocabulary to the benchmark expression), so indexing uses the **prompt-free**
 checkpoint, which carries the 4,585-class LVIS vocabulary in its weights.
-``veason detect`` is the only place a caller-supplied phrase reaches a model, and
+``vrs detect`` is the only place a caller-supplied phrase reaches a model, and
 it uses the *promptable* checkpoint with ``set_classes``.
 """
 from __future__ import annotations
@@ -67,7 +67,7 @@ def _result_to_candidates(result, names, frame_shape, source: str) -> tuple[list
             # the 12px padding into the picture and shifts the mask off its box;
             # scale_masks crops the padding first.
             m = scale_masks(m[:, None], (h, w))[:, 0]
-            masks = (m.cpu().numpy() > 0.5)
+            masks = (m.numpy() > 0.5)
 
     candidates: list[dict] = []
     mask_list: list[np.ndarray | None] = []
@@ -166,11 +166,11 @@ class PromptedDetector:
             missing.append("mobileclip_blt.ts")
         if missing:
             raise VrsError(
-                "`veason detect` needs the YOLOE text encoder, which is not installed "
+                "`vrs detect` needs the YOLOE text encoder, which is not installed "
                 f"(missing: {', '.join(missing)})",
                 hint="run `bash tools/setup_detect.sh` once (offline install of the "
                 "ultralytics CLIP fork + the 572MB MobileCLIP text tower); "
-                "`veason index/regions/seg/answer` do not need it.",
+                "`vrs index/regions/seg/answer` do not need it.",
             )
         from ultralytics import YOLOE
 
@@ -181,7 +181,7 @@ class PromptedDetector:
         if not phrases:
             raise VrsError(
                 "no phrases given to `detect`",
-                hint='usage: veason detect <index_dir> <frame_id> "red dress" "a person".',
+                hint='usage: vrs detect <index_dir> <frame_id> "red dress" "a person".',
                 code=2,
             )
         # set_classes re-parameterises the head; the text encoder runs once per call.

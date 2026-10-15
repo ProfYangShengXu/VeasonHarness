@@ -1,7 +1,7 @@
-"""Self-checks for veason-skills.  No pytest needed:
+"""Self-checks for vrs-skills.  No pytest needed:
 
-    python tests/test_veason.py            # fast: synthetic index, no models
-    python tests/test_veason.py --slow     # also runs the model-backed reject path
+    python tests/test_vrs.py            # fast: synthetic index, no models
+    python tests/test_vrs.py --slow     # also runs the model-backed reject path
 
 The point of these tests is not that the happy path works (the acceptance run
 shows that).  It is that every assertion here has been *observed to fail* when
@@ -24,13 +24,13 @@ sys.path.insert(0, str(ROOT))
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
-from veason_harness.answers import keyframe_timestamp  # noqa: E402
-from veason_harness.cli import build_parser  # noqa: E402
-from veason_harness.recall import RRF_K, fuse  # noqa: E402
-from veason_harness.store import IndexStore, sha256_json  # noqa: E402
+from vrs_skills.answers import keyframe_timestamp  # noqa: E402
+from vrs_skills.cli import build_parser  # noqa: E402
+from vrs_skills.recall import RRF_K, fuse  # noqa: E402
+from vrs_skills.store import IndexStore, sha256_json  # noqa: E402
 
 PY = sys.executable
-VRS = str(ROOT / "veason.py")
+VRS = str(ROOT / "vrs.py")
 FAILURES: list[str] = []
 
 
@@ -158,7 +158,7 @@ def test_guided_failures(tmp: Path) -> None:
     body = json.loads(err)
     check("missing index dir -> exit 3", rc == 3, f"rc={rc}")
     check("missing index dir -> stdout empty", out == "")
-    check("missing index dir -> hint present", "veason index" in body.get("hint", ""))
+    check("missing index dir -> hint present", "vrs index" in body.get("hint", ""))
 
     rc, out, err = run("regions", str(store.root), "999")
     body = json.loads(err)
@@ -170,7 +170,7 @@ def test_guided_failures(tmp: Path) -> None:
 
     rc, out, err = run("verify", str(store.root), "7", "1")
     body = json.loads(err)
-    check("verify without an answer -> exit 2 + hint", rc == 2 and "veason answer" in body.get("hint", ""))
+    check("verify without an answer -> exit 2 + hint", rc == 2 and "vrs answer" in body.get("hint", ""))
 
     rc, out, err = run("answer", str(store.root), "7")
     check("answer without idxs -> exit 2", rc == 2)
@@ -337,7 +337,7 @@ def test_slow_recall_reject() -> None:
 
 def make_sense_index(root: Path) -> IndexStore:
     """Two frames with real files and hand-written senses (no model needed)."""
-    from veason_harness.senses import SCHEMA as SENSE_SCHEMA
+    from vrs_skills.senses import SCHEMA as SENSE_SCHEMA
 
     store = IndexStore(root)
     frames = [

@@ -17,6 +17,65 @@ from .errors import VrsError
 from .store import sha256_file
 
 
+def parse_frame_ids(raw: str) -> list[int]:
+    """``"850,384"`` -> ``[850, 384]``; raises a guided error on anything else.
+
+    One implementation for every command that takes ``--frames`` (screen /
+    locate / evidence).  Three copies used to disagree on empty input.
+    """
+    if raw is None or not str(raw).strip():
+        raise VrsError(
+            "no --frames given",
+            hint='usage: --frames 850,384 (comma-separated decoded frame ids)',
+            code=2,
+        )
+    out: list[int] = []
+    for part in str(raw).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            out.append(int(part))
+        except ValueError:
+            raise VrsError(
+                f"--frames {raw!r} is not a comma-separated list of ints",
+                hint="frame ids are integers, e.g. --frames 850,384",
+                code=2,
+            ) from None
+    if not out:
+        raise VrsError(f"--frames {raw!r} contains no frame ids",
+                       hint="pass at least one id, e.g. --frames 850", code=2)
+    return out
+
+
+def load_bgr(store, frame_id: int) -> np.ndarray:
+    """Read one indexed frame as BGR, or raise the actionable VrsError."""
+    img = cv2.imread(str(store.frame_image(frame_id)))
+    if img is None:
+        raise VrsError(
+            f"frame image unreadable: {store.frame_image(frame_id)}",
+            hint="re-run `vrs index`; the stored PNG is corrupt.",
+        )
+    return img
+
+
+def region_area_ratio(region: dict | None, meta: dict) -> float:
+    """bbox area / frame area — a deterministic computation, never a model.
+
+    Prefers the ``area_ratio`` already stored in the region table and only
+    falls back to recomputing from ``bbox``; if the two disagree the stored
+    number wins, because that is the table the agent was shown.
+    """
+    if not region:
+        return 0.0
+    if region.get("area_ratio") is not None:
+        return float(region["area_ratio"])
+    w = float(meta.get("width") or 1) or 1.0
+    h = float(meta.get("height") or 1) or 1.0
+    x1, y1, x2, y2 = (float(v) for v in region["bbox"])
+    return max(0.0, (x2 - x1) * (y2 - y1)) / (w * h)
+
+
 def probe(video: Path) -> dict:
     """Cheap container-level facts.  Raises a guided error when undecodable."""
     if not video.is_file():
@@ -82,7 +141,7 @@ def read_frames(video: Path, frame_ids: list[int]) -> dict[int, np.ndarray]:
         if not cap.isOpened():
             raise VrsError(
                 f"cv2 could not open {video}",
-                hint="see `veason doctor`-style hint: re-encode the file or use another container.",
+                hint="see `vrs doctor`-style hint: re-encode the file or use another container.",
             )
         for fid in sorted(frame_ids):
             if fid < 0:

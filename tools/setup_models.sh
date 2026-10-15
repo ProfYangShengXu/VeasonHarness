@@ -28,7 +28,7 @@ done
 # relsgg with --no-deps: its pyproject pins transformers~=5.14 / numpy~=2.5 /
 # Pillow~=12.3, and a plain install would downgrade a working ultralytics/torch
 # environment.  The code runs fine against what is already installed.
-PY="${VEASON_PYTHON:-<你的 python>}"
+PY="${VRS_PYTHON:-/mnt/c/Users/45140/AppData/Local/Programs/Python/Python312/python.exe}"
 if ! "$PY" -c "import relsgg" 2>/dev/null; then
   "$PY" -m pip install -e "$DIR/third_party/RelateAnything" --no-deps --no-build-isolation
 fi

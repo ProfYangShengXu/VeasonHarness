@@ -53,63 +53,6 @@ Veason-R1 本体          0.615          ★ 它在每一题都选 f0 —— 不
 
 ---
 
-## ★ 过程记录：三环被绕过，读数全废
-
-这一节记的是**把读数做废的那次偷懒**，保留下来是因为它比结果更有用。
-
-### 做了什么
-
-为了让链路"先跑通"，我在自己的驱动脚本里**跳过了三环**：
-
-```
-② locate（Veason-R1）   跳过 → 用索引里检测器（YOLOE）的粗框顶替
-③ evidence（多轴小模型） 跳过 → 只用一个「面积」轴
-① screen 里的 Jev        只在"标签没命中"时才调，把标签字面命中当成"已确认"
-```
-
-### 后果
-
-```
-检测器的框 ∈ 候选  →  88.65% 的「场地框」一路进决策
-                    →  同一帧的目标掩码面积被量成 55.1%
-                    →  而真值是 10.1%（差 5 倍）
-                    →  所有选帧读数都是假的
-```
-
-最典型的是一道"背对镜头的黑熊"题：模型在**目标根本不在场**的帧上照样给出框
-（框住的是同画面的另一只熊），而判据按那个框的面积排序 ⇒ 选出了一帧目标缺席的画面。
-
-### 修法
-
-```
-YOLO 的位置   →  只做【帧级初筛】（"这帧上有没有可能出现目标"），它的框不进候选
-框的来源      →  一律走 ② locate（Veason-R1），逐帧单独问
-测量来源      →  一律走 SAM2：框 → 掩码 → 面积/填充率/贴边
-```
-
-**同一个数，修前修后**：
-
-```
-        修前（检测器粗框 + SAM2）   修后（Veason 框 + SAM2）   真值
-f109           55.1%                      9.6%                10.1%
-```
-
-### 教训
-
-**脚手架的价值全在"每一环都真调用了那个该调的模型"。绕过一环，读数就不是"差一点"，
-而是"在量另一件事"。** 更糟的是它**不会报错** —— 链路照常跑完、照常输出一个 JSON、
-照常算出一个分数，只是那个分数没有意义。
-
-配套的两条纪律（已写进本仓契约）：
-
-```
-· 模型没被调用时，事件里必须看得见（例如 evidence_axis_unavailable / reflect_zoom_target_skipped），
-  不允许静默降级成"看起来正常"的结果
-· 同一份输出里，测量值必须能追到它的来源（哪个模型、哪个框），
-  否则不同来源的面积会被拿来互相比较
-```
-
----
 
 ## 架构设计
 
@@ -118,8 +61,8 @@ f109           55.1%                      9.6%                10.1%
 ```
 ┌─────────────────────────── 脚手架（确定性，可测） ───────────────────────────┐
 │                                                                             │
-│   veason_pipeline.py   编排：在【哪些点】需要 agent 做决定，显式写出来           │
-│   veason_harness/cli.py 装配点：唯一的依赖注入处                              │
+│   vrs_pipeline.py   编排：在【哪些点】需要 agent 做决定，显式写出来           │
+│   vrs_skills/cli.py 装配点：唯一的依赖注入处                              │
 │                                                                             │
 │   ① screen   ─ ② locate ─ ③ evidence ─ ④ decide ─ ⑤ reflect                 │
 │                                                                             │
@@ -177,7 +120,7 @@ f109           55.1%                      9.6%                10.1%
 
 缺 `mediapipe` 时 `face`/`pose` 轴要报 `evidence_axis_unavailable`；
 Veason 在某帧没给框时 `zoom` 要报 `reflect_zoom_target_skipped`。
-**静默跳过的后果是：读者以为这一环跑了，其实没跑** —— 见上面那节"过程记录"。
+**静默跳过的后果是：读者以为这一环跑了，其实没跑。**
 
 ### 四、对外的硬契约
 
@@ -268,10 +211,10 @@ Veason-R1 本体              0.615            差于随机
 
 ```bash
 # 建索引（CPU 就能跑）
-python -m veason_harness index <video.mp4> --frames 16
+python vrs.py index <video.mp4> --frames 16
 
 # 五环链（需要 GPU + 权重）
-python veason_pipeline.py --video <video.mp4> --query "<指代表达>" --synonym "<外观短语>"
+python vrs_pipeline.py --video <video.mp4> --query "<指代表达>" --synonym "<外观短语>"
 ```
 
 题目来自 ReVOS，可自行下载；**本仓库不含任何数据集**（见下方"数据与许可"）。
@@ -289,18 +232,18 @@ git clone https://github.com/<你的用户名>/VeasonHarness.git
 cd VeasonHarness
 
 # 建索引（CPU 就能跑，不需要 GPU、不需要下大模型）
-python -m veason_harness index  your_video.mp4 --frames 16
+python vrs.py index  your_video.mp4 --frames 16
 
 # 看有哪些帧 / 有哪些区域
-python -m veason_harness frames  index/your_video-<hash>
-python -m veason_harness regions index/your_video-<hash> 357
+python vrs.py frames  index/your_video-<hash>
+python vrs.py regions index/your_video-<hash> 357
 ```
 
 ### 装成命令
 
 ```bash
 pip install -e .
-veason index your_video.mp4 --frames 16
+vrs index your_video.mp4 --frames 16
 ```
 
 ### 要跑精细定位（② locate）才需要的东西
@@ -309,7 +252,7 @@ veason index your_video.mp4 --frames 16
 bash tools/setup_models.sh     # 检测器权重（YOLOE + relation）
 bash tools/setup_detect.sh     # YOLOE 的文本编码器（离线装 ultralytics 的 CLIP fork）
 
-# 定位模型（Veason-R1）与视觉 Jev 需要自备，放到 $VEASON_MODELS_DIR（默认 ./models）
+# 定位模型（Veason-R1）与视觉 Jev 需要自备，放到 $VRS_MODELS_DIR（默认 ./models）
 #   Veason-R1/      qwen2_5_vl 形态，约 8.15 GB
 ```
 

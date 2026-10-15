@@ -1,7 +1,7 @@
 """VRS perception skills, packaged so an LLM agent can drive them from a shell.
 
 Design in one line: **the agent picks ``index``es, never coordinates.**
-``veason answer`` is the only command that turns a region id into a box, so an
+``vrs answer`` is the only command that turns a region id into a box, so an
 answer that refers to a region the caller never saw is structurally impossible.
 
 Layering (dependencies point one way, always at the stable side)::

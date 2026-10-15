@@ -16,7 +16,7 @@ import os
 import re
 from pathlib import Path
 
-#: Repository root (``.../veason-skills``).  Model weights and the default index
+#: Repository root (``.../vrs-skills``).  Model weights and the default index
 #: directory hang off this, so behaviour does not depend on the shell's cwd.
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
@@ -26,6 +26,14 @@ DEFAULT_YOLOE = MODELS_DIR / "yoloe-11s-seg.pt"
 RELSGG_DIR = MODELS_DIR / "relsgg-vits16plus"
 #: Where ``attempt_download_asset`` looks for ``mobileclip_blt.ts``.
 ULTRALYTICS_WEIGHTS_DIR = MODELS_DIR / "ultralytics_weights"
+#: SAM2（③ 掩码打标）：把 locate 给的框抠成像素级掩码。
+#: tiny 是默认档（够用且快）；small 是备选。
+DEFAULT_SAM2_TINY = MODELS_DIR / "sam2.1_hiera_tiny.pt"
+#: ① 的 RSI-Jev 权重目录。★ 默认名是 "v6.1-vl-4b"，但 Decider 拿到
+#: **名字**会去 HuggingFace 下载；给**目录路径**才走本地权重。
+DEFAULT_JEV_DIR = MODELS_DIR / "RSI-Jev-v6.1-vl-4b"
+DEFAULT_SAM2_SMALL = MODELS_DIR / "sam2.1_hiera_small.pt"
+SAM2_CONFIG_DIR = PROJECT_DIR / "models" / "sam2_configs"
 DEFAULT_INDEX_DIR = PROJECT_DIR / "index"
 
 #: Round-3 sense models (all optional: each axis degrades if its file is absent).
@@ -62,11 +70,11 @@ def to_wsl(p: str | os.PathLike) -> str | None:
 def invocation_cwd() -> Path:
     """Base for relative paths.
 
-    The shell shim exports ``VEASON_CWD`` (the *shell's* cwd, already converted to
+    The shell shim exports ``VRS_CWD`` (the *shell's* cwd, already converted to
     a Windows path) because a Windows process launched from WSL inherits a
     ``\\\\wsl.localhost\\...`` UNC cwd that is useless to ``cv2``.
     """
-    env = os.environ.get("VEASON_CWD")
+    env = os.environ.get("VRS_CWD")
     if env:
         return Path(to_windows(env))
     return Path(os.getcwd())

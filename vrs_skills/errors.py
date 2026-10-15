@@ -5,7 +5,7 @@ Every expected failure therefore leaves as a single JSON object on *stderr*
 (stdout stays empty, so the agent never parses an error as data) plus a
 non-zero exit code:
 
-    {"ok": false, "error": "...", "hint": "...", "where": "veason regions"}
+    {"ok": false, "error": "...", "hint": "...", "where": "vrs regions"}
 
 Exit codes: ``2`` usage, ``3`` runtime/environment, ``4`` verification failed.
 """

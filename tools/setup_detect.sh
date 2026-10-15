@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# One-time, offline-friendly setup for `veason detect` only.
+# One-time, offline-friendly setup for `vrs detect` only.
 #
-# YOLOE's text-prompt path needs two extra pieces that `veason index/regions/seg/
+# YOLOE's text-prompt path needs two extra pieces that `vrs index/regions/seg/
 # answer` never touch:
 #   1. the `clip` module -- ultralytics wants its own fork, and its auto-install
 #      shells out to git.exe, which cannot reach github on this machine (the
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PY="${VEASON_PYTHON:-<你的 python>}"
+PY="${VRS_PYTHON:-/mnt/c/Users/45140/AppData/Local/Programs/Python/Python312/python.exe}"
 mkdir -p "$DIR/models/ultralytics_weights"
 
 if ! "$PY" -c "import clip" 2>/dev/null; then

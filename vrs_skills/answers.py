@@ -38,7 +38,7 @@ def _check_idxs(idxs: Sequence[int]) -> list[int]:
     if not out:
         raise VrsError(
             "no region_idx given",
-            hint="usage: veason answer <index_dir> <frame_id> <region_idx> [<region_idx> ...]",
+            hint="usage: vrs answer <index_dir> <frame_id> <region_idx> [<region_idx> ...]",
             code=2,
         )
     if len(set(out)) != len(out):
@@ -125,7 +125,7 @@ def verify(store: IndexStore, frame_id: int, idxs: Sequence[int]) -> tuple[dict,
     if snap is None:
         raise VrsError(
             f"no answer snapshot for frame {frame_id} regions {idxs}",
-            hint=f"run `veason answer <index_dir> {frame_id} {' '.join(str(i) for i in idxs)}` "
+            hint=f"run `vrs answer <index_dir> {frame_id} {' '.join(str(i) for i in idxs)}` "
             "first — verify checks a delivered answer against the live region table, "
             "so there must be an answer to check.",
             code=2,
@@ -173,6 +173,6 @@ def verify(store: IndexStore, frame_id: int, idxs: Sequence[int]) -> tuple[dict,
         payload["error"] = "delivered answer disagrees with the current region table"
         payload["hint"] = (
             "the region table was changed after `answer` ran (re-index, or a `detect` "
-            "that reassigned boxes); re-run `veason answer` and re-submit."
+            "that reassigned boxes); re-run `vrs answer` and re-submit."
         )
     return payload, ok

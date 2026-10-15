@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "veason-harness"
 version = "0.1.0"
-description = "Give an LLM agent eyes: index a video once, then answer "which frame, and where in it" with a region id instead of a coordinate."
+description = 'Give an LLM agent eyes: index a video once, then answer "which frame, and where in it" with a region id instead of a coordinate.'
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -36,10 +36,10 @@ dev = [
 ]
 
 [project.scripts]
-veason = "veason_harness.cli:main"
+vrs = "vrs_skills.cli:main"
 
 [tool.setuptools]
-packages = ["veason_harness"]
+packages = ["vrs_skills"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

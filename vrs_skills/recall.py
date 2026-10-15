@@ -1,4 +1,4 @@
-"""``veason recall``: multi-route structured retrieval over an index.
+"""``vrs recall``: multi-route structured retrieval over an index.
 
 The caller (an LLM) does natural-language understanding *before* calling this:
 it turns "the laughing yellow dragon" into the structured query
@@ -19,7 +19,7 @@ route            field                       what it costs
 ===============  ==========================  ==========================================
 
 Round 3 adds six **sense routes** over the per-frame files written by
-``veason senses`` (see ``senses.py``).  They cost nothing at query time because
+``vrs senses`` (see ``senses.py``).  They cost nothing at query time because
 their models ran once, at senses time; ``recall`` only reads the files:
 
 ===============  ==========================  ==========================================
@@ -183,7 +183,7 @@ class _ClipScorer:
     The YOLOE asset (``mobileclip_blt.ts``) is the *full* MobileCLIP, but the
     file was traced for its text tower only: ``image_encoder`` is present as
     dead parameters and exposes no scripted ``forward``, so it cannot embed a
-    region crop.  OpenAI CLIP is already installed (``veason detect`` needs it)
+    region crop.  OpenAI CLIP is already installed (``vrs detect`` needs it)
     and its weights are cached next to the other models, so the semantic route
     adds no framework dependency and no second text encoder choice.
     """
@@ -212,7 +212,7 @@ class _ClipScorer:
         with torch.no_grad():
             feats = self.model.encode_text(tokens)
             feats = feats / feats.norm(dim=-1, keepdim=True)
-        return feats.cpu().numpy()
+        return feats.numpy()
 
     def encode_crops(self, pil_images: list, batch: int = 16) -> np.ndarray:
         import torch
@@ -222,7 +222,7 @@ class _ClipScorer:
                 x = torch.stack([self.pre(im) for im in pil_images[i:i + batch]])
                 feats = self.model.encode_image(x)
                 feats = feats / feats.norm(dim=-1, keepdim=True)
-                out.append(feats.cpu().numpy())
+                out.append(feats.numpy())
         return np.concatenate(out, axis=0) if out else np.zeros((0, 1), np.float32)
 
 
@@ -289,7 +289,7 @@ def _semantic_route(store: IndexStore, eligible: list[dict], phrases: Sequence[s
         patch = _crop_bgr(img, item["region"]["bbox"], mask=cache_masks[fid].get(idx))
         if patch is None:
             continue
-        crops.append(Image.fromarray(np.ascontiguousarray(patch[..., ::-1])))
+        crops.append(Image.fromarray(patch[..., ::-1]))
         keys.append((fid, idx))
     if not crops:
         return {}, info
@@ -657,7 +657,7 @@ def run_recall(store: IndexStore, *, labels: Sequence[str] = (), relations: Sequ
     if not labels and not relations and not sense_query and frame_min is None and frame_max is None:
         raise VrsError(
             "recall needs a query",
-            hint='usage: veason recall <index_dir> --label "yellow" "dragon" '
+            hint='usage: vrs recall <index_dir> --label "yellow" "dragon" '
                  '[--relation "smiling at"] [--expression laughing] [--area-min 0.05]. '
                  "The LLM turns the question into these structured fields; the CLI never parses NL.",
             code=2,

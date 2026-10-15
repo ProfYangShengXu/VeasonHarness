@@ -48,7 +48,7 @@ def show(store: IndexStore, frame_id: int, out: Path | None = None) -> dict:
     if img is None:
         raise VrsError(
             f"frame image unreadable: {store.frame_image(frame_id)}",
-            hint="re-run `veason index`; the stored PNG is corrupt.",
+            hint="re-run `vrs index`; the stored PNG is corrupt.",
         )
     return _artifact(store, f"show_f{frame_id:06d}.png", img, None, out)
 
@@ -65,7 +65,7 @@ def crop(store: IndexStore, frame_id: int, region_idx: int, pad: int = 8,
     if patch.size == 0:
         raise VrsError(
             f"region {region_idx} crops to nothing on frame {frame_id}",
-            hint="the stored bbox is degenerate; re-run `veason index`.",
+            hint="the stored bbox is degenerate; re-run `vrs index`.",
         )
     payload = _artifact(store, f"crop_f{frame_id:06d}_r{region_idx}.png", patch,
                         list(region["bbox"]), out)
@@ -79,7 +79,7 @@ def seg(store: IndexStore, frame_id: int, region_idx: int, out: Path | None = No
     if img is None:
         raise VrsError(
             f"frame image unreadable: {store.frame_image(frame_id)}",
-            hint="re-run `veason index`; the stored PNG is corrupt.",
+            hint="re-run `vrs index`; the stored PNG is corrupt.",
         )
     region = store.get_region(frame_id, region_idx)
     bbox = list(region["bbox"])
