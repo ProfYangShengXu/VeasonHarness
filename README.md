@@ -56,6 +56,9 @@ Veason-R1 本体          0.615          ★ 它在每一题都选 f0 —— 不
 
 ## 架构设计
 
+![VRS Harness 架构](docs/architecture.png)
+
+
 ### 一、分成两层：脚手架 + 模型
 
 ```

@@ -35,8 +35,6 @@ secrets/
 # 内部草稿（内容已并入 README，不进仓库）
 docs_internal/
 
-# 图片与渲染产物（不进仓库）
-docs/
-*.png
-*.jpg
-!docs/.gitkeep
+# docs/ 里只留架构图，其余渲染产物（截图/对比图）不进仓库
+docs/*
+!docs/architecture.png
